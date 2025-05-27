@@ -199,4 +199,3 @@ plt.show()
 
 # 保存结果
 results_df.to_csv('performance_comparison_results.csv', index=False)
-print("结果已保存到 'performance_comparison_results.csv'")
