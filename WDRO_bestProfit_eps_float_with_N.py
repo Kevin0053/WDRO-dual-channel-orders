@@ -36,16 +36,18 @@ num_simulations = 5        # 每个样本规模的模拟次数
 # 固定参数
 fixed_params = {
     'c_d': 1.0,   # 总固定产能单位成本
-    'c_e':1.1,   # 总弹性产能单位成本
+    'c_e': 1.2,   # 总弹性产能单位成本
     'c_d1': 1.0,  # 渠道1固定产能单位成本
     'c_d2': 1.0,  # 渠道2固定产能单位成本
     'c_e1': 1.0,  # 渠道1弹性产能单位成本
     'c_e2': 1.0,  # 渠道2弹性产能单位成本
-    'h': 0.2,     # 固定产能持有成本
-    'rho': 2.0,   # SLA惩罚权重
-    't1': 10.0,   # 渠道1需求违约惩罚成本
-    't2': 10.5,   # 渠道2需求违约惩罚成本
-    'mu': 0.05    # SLA置信水平参数
+    'h': 0.5,     # 固定产能持有成本
+    'rho1': 1.0,  # 渠道1 SLA惩罚权重
+    'rho2': 1.0,  # 渠道2 SLA惩罚权重
+    't1': 7.0,    # 渠道1需求违约惩罚成本
+    't2': 7.5,    # 渠道2需求违约惩罚成本
+    'mu1': 0.1,   # 渠道1 SLA置信水平参数
+    'mu2': 0.1    # 渠道2 SLA置信水平参数
 }
 
 # 基础参数（用于需求生成）
@@ -58,97 +60,78 @@ base_params = {
 
 # 定义仿射函数系数
 def get_affine_coefficients():
-    # 定义SLA参数
-    mu_1 = 0.05  # 渠道1置信水平参数
-    mu_2 = 0.05  # 渠道2置信水平参数
-    rho_1 = 2.0  # 渠道1SLA惩罚权重
-    rho_2 = 2.0  # 渠道2SLA惩罚权重
+    p1 = base_params['p1']
+    p2 = base_params['p2']
+    c_d1 = fixed_params['c_d1']
+    c_d2 = fixed_params['c_d2']
+    c_e1 = fixed_params['c_e1']
+    c_e2 = fixed_params['c_e2']
+    h = fixed_params['h']
+    t1 = fixed_params['t1']
+    t2 = fixed_params['t2']
+    rho1 = fixed_params['rho1']
+    rho2 = fixed_params['rho2']
+    mu1 = fixed_params['mu1']
+    mu2 = fixed_params['mu2']
 
-    # 第一类：SLA-Normal (ℓ_k^(1) = f_k + g_{1,1} + g_{2,1})
-    a_k_N = {
-        1: np.array([-base_params['p1'], -base_params['p2']]),
-        2: np.array([-base_params['p1'], -base_params['p2']]),
-        3: np.array([-base_params['p1'], fixed_params['t2']]),
-        4: np.array([-base_params['p1'], fixed_params['t2']]),
-        5: np.array([fixed_params['t1'], -base_params['p2']]),
-        6: np.array([fixed_params['t1'], -base_params['p2']]),
-        7: np.array([fixed_params['t1'], fixed_params['t2']]),
-        8: np.array([fixed_params['t1'], fixed_params['t2']])
+    a_k = {}
+    b_k = {}
+    c_k = {}
+
+    # 8 base scenarios for f_k
+    f_k_a = {
+        1: np.array([-p1, -p2]),
+        2: np.array([-p1, -p2]),
+        3: np.array([-p1, t2]),
+        4: np.array([-p1, t2]),
+        5: np.array([t1, -p2]),
+        6: np.array([t1, -p2]),
+        7: np.array([t1, t2]),
+        8: np.array([t1, t2])
     }
-
-    b_k_N = {
-        1: np.array([0.0, 0.0, fixed_params['c_d1'], fixed_params['c_d2'], fixed_params['c_e1'], fixed_params['c_e2']]),
-        2: np.array([fixed_params['h'], 0.0, fixed_params['c_d1'], fixed_params['c_d2'], fixed_params['c_e1'], fixed_params['c_e2']]),
-        3: np.array([0.0, 0.0, fixed_params['c_d1'], fixed_params['c_d2']-base_params['p2']+fixed_params['t2'], fixed_params['c_e1'], fixed_params['c_e2']-base_params['p2']+fixed_params['t2']]),
-        4: np.array([fixed_params['h'], 0.0, fixed_params['c_d1'], fixed_params['c_d2']-base_params['p2']+fixed_params['t2'], fixed_params['c_e1'], fixed_params['c_e2']-base_params['p2']+fixed_params['t2']]),
-        5: np.array([0.0, 0.0, fixed_params['c_d1']-base_params['p1']+fixed_params['t1'], fixed_params['c_d2'], fixed_params['c_e1']-base_params['p1']+fixed_params['t1'], fixed_params['c_e2']]),
-        6: np.array([fixed_params['h'], 0.0, fixed_params['c_d1']-base_params['p1']+fixed_params['t1'], fixed_params['c_d2'], fixed_params['c_e1']-base_params['p1']+fixed_params['t1'], fixed_params['c_e2']]),
-        7: np.array([0.0, 0.0, fixed_params['c_d1']-base_params['p1']+fixed_params['t1'], fixed_params['c_d2']-base_params['p2']+fixed_params['t2'], fixed_params['c_e1']-base_params['p1']+fixed_params['t1'], fixed_params['c_e2']-base_params['p2']+fixed_params['t2']]),
-        8: np.array([fixed_params['h'], 0.0, fixed_params['c_d1']-base_params['p1']+fixed_params['t1'], fixed_params['c_d2']-base_params['p2']+fixed_params['t2'], fixed_params['c_e1']-base_params['p1']+fixed_params['t1'], fixed_params['c_e2']-base_params['p2']+fixed_params['t2']])
+    f_k_b = {
+        1: np.array([0, 0, c_d1, c_d2, c_e1, c_e2]),
+        2: np.array([h, 0, c_d1 - h, c_d2 - h, c_e1, c_e2]),
+        3: np.array([0, 0, c_d1, c_d2 - p2 - t2, c_e1, c_e2 - p2 - t2]),
+        4: np.array([h, 0, c_d1 - h, c_d2 - p2 - t2 - h, c_e1, c_e2 - p2 - t2]),
+        5: np.array([0, 0, c_d1 - p1 - t1, c_d2, c_e1 - p1 - t1, c_e2]),
+        6: np.array([h, 0, c_d1 - p1 - t1 - h, c_d2 - h, c_e1 - p1 - t1, c_e2]),
+        7: np.array([0, 0, c_d1 - p1 - t1, c_d2 - p2 - t2, c_e1 - p1 - t1, c_e2 - p2 - t2]),
+        8: np.array([h, 0, c_d1 - p1 - t1 - h, c_d2 - p2 - t2 - h, c_e1 - p1 - t1, c_e2 - p2 - t2])
     }
+    
+    # 32 pieces in total
+    idx = 1
+    # Type 1: Normal + Normal
+    for k in range(1, 9):
+        a_k[idx] = f_k_a[k]
+        b_k[idx] = f_k_b[k]
+        c_k[idx] = np.array([rho1, rho2])
+        idx += 1
 
-    c_k_N = {k: np.array([rho_1, rho_2]) for k in range(1, 9)}
+    # Type 2: Tail ch1 + Normal ch2
+    for k in range(1, 9):
+        a_k[idx] = f_k_a[k] + np.array([rho1/mu1, 0])
+        b_k[idx] = f_k_b[k] + np.array([0, 0, -rho1/mu1, 0, -rho1/mu1, 0])
+        c_k[idx] = np.array([rho1*(1-1/mu1), rho2])
+        idx += 1
 
-    # 第二类：SLA-Tail (ℓ_k^(2) = f_k + g_{1,2} + g_{2,1})
-    a_k_T1 = {
-        k: a_k_N[k] + np.array([rho_1/mu_1, 0.0])
-        for k in range(1, 9)
-    }
+    # Type 3: Normal ch1 + Tail ch2
+    for k in range(1, 9):
+        a_k[idx] = f_k_a[k] + np.array([0, rho2/mu2])
+        b_k[idx] = f_k_b[k] + np.array([0, 0, 0, -rho2/mu2, 0, -rho2/mu2])
+        c_k[idx] = np.array([rho1, rho2*(1-1/mu2)])
+        idx += 1
+    
+    # Type 4: Tail ch1 + Tail ch2
+    for k in range(1, 9):
+        a_k[idx] = f_k_a[k] + np.array([rho1/mu1, rho2/mu2])
+        b_k[idx] = f_k_b[k] + np.array([0, 0, -rho1/mu1, -rho2/mu2, -rho1/mu1, -rho2/mu2])
+        c_k[idx] = np.array([rho1*(1-1/mu1), rho2*(1-1/mu2)])
+        idx += 1
 
-    b_k_T1 = {
-        k: b_k_N[k] - np.array([0.0, 0.0, rho_1/mu_1, 0.0, rho_1/mu_1, 0.0])
-        for k in range(1, 9)
-    }
+    return a_k, b_k, c_k
 
-    c_k_T1 = {
-        k: np.array([rho_1*(1-1/mu_1), rho_2])
-        for k in range(1, 9)
-    }
-
-    # 第三类：SLA-Tail (ℓ_k^(3) = f_k + g_{1,1} + g_{2,2})
-    a_k_T2 = {
-        k: a_k_N[k] + np.array([0.0, rho_2/mu_2])
-        for k in range(1, 9)
-    }
-
-    b_k_T2 = {
-        k: b_k_N[k] - np.array([0.0, 0.0, 0.0, rho_2/mu_2, 0.0, rho_2/mu_2])
-        for k in range(1, 9)
-    }
-
-    c_k_T2 = {
-        k: np.array([rho_1, rho_2*(1-1/mu_2)])
-        for k in range(1, 9)
-    }
-
-    # 第四类：SLA-Tail (ℓ_k^(4) = f_k + g_{1,2} + g_{2,2})
-    a_k_T3 = {
-        k: a_k_N[k] + np.array([rho_1/mu_1, rho_2/mu_2])
-        for k in range(1, 9)
-    }
-
-    b_k_T3 = {
-        k: b_k_N[k] - np.array([0.0, 0.0, rho_1/mu_1, rho_2/mu_2, rho_1/mu_1, rho_2/mu_2])
-        for k in range(1, 9)
-    }
-
-    c_k_T3 = {
-        k: np.array([rho_1*(1-1/mu_1), rho_2*(1-1/mu_2)])
-        for k in range(1, 9)
-    }
-
-    return a_k_N, b_k_N, c_k_N, a_k_T1, b_k_T1, c_k_T1, a_k_T2, b_k_T2, c_k_T2, a_k_T3, b_k_T3, c_k_T3
-
-# 支撑集约束
-C = np.array([
-    [1, 0],   # D1 >= 0
-    [0, 1],   # D2 >= 0
-    [-1, 0],  # D1 <= bar_D1
-    [0, -1]   # D2 <= bar_D2
-])
-
-# 最大需求值
-d = np.array([base_params['bar_D1'], base_params['bar_D2'], 0.0, 0.0])
 
 def generate_samples(N):
     """生成正态分布的需求样本，并截断到合理范围"""
@@ -161,7 +144,7 @@ def generate_samples(N):
     
     return np.column_stack((D1, D2))
 
-def solve_dro_model(samples, epsilon):
+def solve_dro_model(samples, c_d, c_e, c_d1, c_d2, c_e1, c_e2, h, rho1, rho2, t1, t2, mu1, mu2, epsilon):
     """求解 DRO 模型"""
     N = len(samples)
     model = gp.Model("DRO_Model")
@@ -171,9 +154,17 @@ def solve_dro_model(samples, epsilon):
     model.setParam("TimeLimit", 60)
     model.setParam("Threads", 4)
     
+    # 定义约束矩阵 C
+    C = np.array([
+        [1, 0],   # D1 <= bar_D1
+        [0, 1],   # D2 <= bar_D2
+        [-1, 0],  # -D1 <= 0 (D1 >= 0)
+        [0, -1]   # -D2 <= 0 (D2 >= 0)
+    ])
+    
     # 决策变量
     x_vars = model.addVars(6, lb=0, name="x")  # x = [bar_xd, xe, xd1, xd2, xe1, xe2]
-    tau = model.addVar(lb=-GRB.INFINITY, ub=GRB.INFINITY, name="tau")
+    tau = model.addVars(2, lb=-GRB.INFINITY, ub=GRB.INFINITY, name="tau")
     
     # 辅助变量
     lambda_var = model.addVar(lb=0, name="lambda")
@@ -182,98 +173,54 @@ def solve_dro_model(samples, epsilon):
     # 对偶变量 gamma_ik
     gamma = {}
     for i in range(N):
-        for k in range(1, 23):  # 22个分段
+        for k in range(1, 33):  # 32个分段
             gamma[(i, k)] = model.addVars(4, lb=0, name=f"gamma_{i}_{k}")
     
     # 获取仿射函数系数
-    a_k_N, b_k_N, c_k_N, a_k_T1, b_k_T1, c_k_T1, a_k_T2, b_k_T2, c_k_T2, a_k_T3, b_k_T3, c_k_T3 = get_affine_coefficients()
+    a_k, b_k, c_k = get_affine_coefficients()
     
-    # 目标函数
+    # 最大需求值
+    d = np.array([base_params['bar_D1'], base_params['bar_D2'], 0.0, 0.0])
+    
+    # 目标函数 - 根据式(3)
     obj = lambda_var * epsilon + (1/N) * gp.quicksum(s[i] for i in range(N)) + \
-          fixed_params['c_d'] * x_vars[0] + fixed_params['c_e'] * x_vars[1]
+          c_d * x_vars[0] + c_e * x_vars[1]
     model.setObjective(obj, GRB.MINIMIZE)
     
     # 约束条件
     for i in range(N):
-        # 第一类：SLA-Normal (ℓ_k^(1))
-        for k in range(1, 9):
-            a_term = a_k_N[k] @ samples[i]
-            b_term = sum(b_k_N[k][j] * x_vars[j] for j in range(6))
-            c_term = c_k_N[k] @ tau
+        # 32个分段约束
+        for k in range(1, 33):
+            a_term = a_k[k] @ samples[i]
+            b_term = gp.quicksum(b_k[k][j] * x_vars[j] for j in range(6))
+            c_term = gp.quicksum(c_k[k][j] * tau[j] for j in range(2))
             Cxi = C @ samples[i]
             gamma_term = sum(gamma[(i, k)][m] * (d[m] - Cxi[m]) for m in range(4))
             model.addConstr(a_term + b_term + c_term + gamma_term <= s[i])
-        
-        # 第二类：SLA-Tail (ℓ_k^(2))
-        for k in range(1, 9):
-            a_term = a_k_T1[k] @ samples[i]
-            b_term = sum(b_k_T1[k][j] * x_vars[j] for j in range(6))
-            c_term = c_k_T1[k] @ tau
-            Cxi = C @ samples[i]
-            gamma_term = sum(gamma[(i, k+8)][m] * (d[m] - Cxi[m]) for m in range(4))
-            model.addConstr(a_term + b_term + c_term + gamma_term <= s[i])
             
-        # 第三类：SLA-Tail (ℓ_k^(3))
-        for k in range(1, 9):
-            a_term = a_k_T2[k] @ samples[i]
-            b_term = sum(b_k_T2[k][j] * x_vars[j] for j in range(6))
-            c_term = c_k_T2[k] @ tau
-            Cxi = C @ samples[i]
-            gamma_term = sum(gamma[(i, k+16)][m] * (d[m] - Cxi[m]) for m in range(4))
-            model.addConstr(a_term + b_term + c_term + gamma_term <= s[i])
-            
-        # 第四类：SLA-Tail (ℓ_k^(4))
-        for k in range(1, 9):
-            a_term = a_k_T3[k] @ samples[i]
-            b_term = sum(b_k_T3[k][j] * x_vars[j] for j in range(6))
-            c_term = c_k_T3[k] @ tau
-            Cxi = C @ samples[i]
-            gamma_term = sum(gamma[(i, k+24)][m] * (d[m] - Cxi[m]) for m in range(4))
-            model.addConstr(a_term + b_term + c_term + gamma_term <= s[i])
-    
     # L1 范数对偶约束
     for i in range(N):
-        # 第一类：SLA-Normal (ℓ_k^(1))
-        for k in range(1, 9):
+        for k in range(1, 33):
             C_T_gamma = C.T @ [gamma[(i, k)][m] for m in range(4)]
-            diff = C_T_gamma - a_k_N[k]
-            for m in range(len(diff)):
-                model.addConstr(diff[m] <= lambda_var)
-                model.addConstr(-diff[m] <= lambda_var)
-        
-        # 第二类：SLA-Tail (ℓ_k^(2))
-        for k in range(1, 9):
-            C_T_gamma = C.T @ [gamma[(i, k+8)][m] for m in range(4)]
-            diff = C_T_gamma - a_k_T1[k]
-            for m in range(len(diff)):
-                model.addConstr(diff[m] <= lambda_var)
-                model.addConstr(-diff[m] <= lambda_var)
-                
-        # 第三类：SLA-Tail (ℓ_k^(3))
-        for k in range(1, 9):
-            C_T_gamma = C.T @ [gamma[(i, k+16)][m] for m in range(4)]
-            diff = C_T_gamma - a_k_T2[k]
-            for m in range(len(diff)):
-                model.addConstr(diff[m] <= lambda_var)
-                model.addConstr(-diff[m] <= lambda_var)
-                
-        # 第四类：SLA-Tail (ℓ_k^(4))
-        for k in range(1, 9):
-            C_T_gamma = C.T @ [gamma[(i, k+24)][m] for m in range(4)]
-            diff = C_T_gamma - a_k_T3[k]
+            diff = C_T_gamma - a_k[k]
             for m in range(len(diff)):
                 model.addConstr(diff[m] <= lambda_var)
                 model.addConstr(-diff[m] <= lambda_var)
     
-    # 其他约束
-    model.addConstr(x_vars[2] + x_vars[3] <= x_vars[0], "fixed_capacity")
-    model.addConstr(x_vars[4] + x_vars[5] <= x_vars[1], "flexible_capacity")
+    # 产能约束
+    model.addConstr(x_vars[2] + x_vars[3] <= x_vars[0], "fixed_capacity")  # 固定产能约束
+    model.addConstr(x_vars[4] + x_vars[5] <= x_vars[1], "flexible_capacity")  # 弹性产能约束
     
     # 求解
     model.optimize()
     
     # 记录结果
     if model.status == GRB.OPTIMAL:
+        # model.ObjVal 是最小化的最坏情况总成本
+        # worst_case_loss = model.ObjVal - (c_d * x_vars[0].X + c_e * x_vars[1].X)
+        # profit = -worst_case_loss
+        worst_case_loss = model.ObjVal - (fixed_params['c_d'] * x_vars[0].X + fixed_params['c_e'] * x_vars[1].X)
+        
         result = {
             'bar_xd': x_vars[0].X,
             'xe': x_vars[1].X,
@@ -281,7 +228,8 @@ def solve_dro_model(samples, epsilon):
             'xd2': x_vars[3].X,
             'xe1': x_vars[4].X,
             'xe2': x_vars[5].X,
-            'objective': model.ObjVal,
+            'profit': worst_case_loss,  # 此处的'profit'存储的是计算出的最坏情况利润
+            'objective': model.ObjVal,   # 保留原始目标值
             'epsilon': epsilon
         }
         return result
@@ -289,8 +237,9 @@ def solve_dro_model(samples, epsilon):
         raise ValueError(f"DRO Model did not find optimal solution for N={N}")
 
 # 在保存结果之前，确保文件夹存在
-os.makedirs('results/Pics', exist_ok=True)
-os.makedirs('results/Data', exist_ok=True)
+output_dir = os.path.join('results', '32_dro_profit_analysis')
+os.makedirs(output_dir, exist_ok=True)
+
 
 # 运行不同样本规模的仿真
 results = []
@@ -302,7 +251,14 @@ for N in N_values:
     for sim in range(num_simulations):
         print(f"  模拟 {sim+1}/{num_simulations}")
         samples = generate_samples(N)
-        result = solve_dro_model(samples, epsilon_current)
+        result = solve_dro_model(samples, 
+                               fixed_params['c_d'], fixed_params['c_e'],
+                               fixed_params['c_d1'], fixed_params['c_d2'],
+                               fixed_params['c_e1'], fixed_params['c_e2'],
+                               fixed_params['h'], fixed_params['rho1'],
+                               fixed_params['rho2'], fixed_params['t1'], 
+                               fixed_params['t2'], fixed_params['mu1'],
+                               fixed_params['mu2'], epsilon_current)
         result['N'] = N
         result['simulation'] = sim+1
         results.append(result)
@@ -310,98 +266,57 @@ for N in N_values:
 # 数据处理和可视化
 results_df = pd.DataFrame(results)
 
-# 计算每个样本规模的平均值和标准差
-summary = results_df.groupby('N').agg({
-    'objective': ['mean', 'std'],
-    'bar_xd': ['mean', 'std'],
-    'xe': ['mean', 'std'],
-    'xd1': ['mean', 'std'],
-    'xd2': ['mean', 'std'],
-    'xe1': ['mean', 'std'],
-    'xe2': ['mean', 'std'],
-    'epsilon': 'mean'
-}).reset_index()
+# Group by epsilon and calculate statistics
+summary = results_df.groupby('epsilon').agg(['mean', 'std'])
 
-# 打印汇总统计
-print("\n=== 不同样本规模下的结果统计 ===")
-for _, row in summary.iterrows():
-    print(f"\n样本规模 N = {row['N']}")
-    print(f"平均利润: {row[('objective', 'mean')]:.2f} (±{row[('objective', 'std')]:.2f})")
-    print(f"平均固定产能: {row[('bar_xd', 'mean')]:.2f} (±{row[('bar_xd', 'std')]:.2f})")
-    print(f"平均弹性产能: {row[('xe', 'mean')]:.2f} (±{row[('xe', 'std')]:.2f})")
-    print(f"Epsilon: {row[('epsilon', 'mean')]:.4f}")
+# Flatten MultiIndex columns and reset index
+summary.columns = ['_'.join(col).strip() for col in summary.columns.values]
+summary = summary.reset_index()
 
 
-# 保存结果到 Excel
-results_df = pd.DataFrame(results)          # results 是一个已经存在的数据列表或字典
-# 创建 ExcelWriter 对象
-with pd.ExcelWriter(os.path.join('results', 'Data', 'modified_dro_simulation_results.xlsx'), mode='a') as writer:
-    # 将 DataFrame 写入指定的工作表
-    results_df.to_excel(writer, sheet_name='Sheet5', index=False)
+# Save results
+output_dir = 'results/best_profit_analysis_with_N_final'
+os.makedirs(output_dir, exist_ok=True)
+excel_path = os.path.join(output_dir, 'dro_best_profit_summary_with_N.xlsx')
+with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+    results_df.to_excel(writer, sheet_name='Raw_Data', index=False)
+    summary.to_excel(writer, sheet_name='Summary_Statistics', index=False)
 
-# 📊 Visualization
-plt.figure(figsize=(15, 20))
 
-# --- Subplot 1: 利润随样本规模的变化 ---
-plt.subplot(5, 1, 1)
-plt.errorbar(summary['N'], summary[('objective', 'mean')], 
-             yerr=summary[('objective', 'std')], 
-             fmt='o-', color='blue', alpha=0.7)
-plt.title('Profit vs Sample Size')
-plt.xlabel('Sample Size (N)')
-plt.ylabel('Profit')
-plt.grid(True)
+# 可视化分析
+plt.style.use('seaborn-v0_8-whitegrid')
+fig, axes = plt.subplots(3, 1, figsize=(12, 18))
+fig.suptitle('DRO Model Performance vs. Wasserstein Radius ($\\epsilon$)', fontsize=16)
 
-# --- Subplot 2: 固定产能随样本规模的变化 ---
-plt.subplot(5, 1, 2)
-plt.errorbar(summary['N'], summary[('bar_xd', 'mean')], 
-             yerr=summary[('bar_xd', 'std')], 
-             fmt='o-', color='red', alpha=0.7, label='Fixed Capacity')
-plt.title('Fixed Capacity vs Sample Size')
-plt.xlabel('Sample Size (N)')
-plt.ylabel('Fixed Capacity')
-plt.grid(True)
-plt.legend()
+# --- Subplot 1: Profit ---
+axes[0].errorbar(summary['epsilon'], summary['profit_mean'], yerr=summary['profit_std'],
+                 fmt='-o', capsize=5, color='b', label='Worst-case Profit')
+axes[0].set_xlabel('Wasserstein Radius ($\\epsilon$)', fontsize=12)
+axes[0].set_ylabel('Worst-case Guaranteed Profit', fontsize=12)
+axes[0].set_title('Profit vs. Epsilon', fontsize=14)
+axes[0].legend()
 
-# --- Subplot 3: 弹性产能随样本规模的变化 ---
-plt.subplot(5, 1, 3)
-plt.errorbar(summary['N'], summary[('xe', 'mean')], 
-             yerr=summary[('xe', 'std')], 
-             fmt='o-', color='green', alpha=0.7, label='Flexible Capacity')
-plt.title('Flexible Capacity vs Sample Size')
-plt.xlabel('Sample Size (N)')
-plt.ylabel('Flexible Capacity')
-plt.grid(True)
-plt.legend()
+# --- Subplot 2: Capacities ---
+axes[1].errorbar(summary['epsilon'], summary['bar_xd_mean'], yerr=summary['bar_xd_std'],
+                 fmt='-s', capsize=5, color='r', label='Total Fixed Capacity (bar_xd)')
+axes[1].errorbar(summary['epsilon'], summary['xe_mean'], yerr=summary['xe_std'],
+                 fmt='-^', capsize=5, color='g', label='Total Flexible Capacity (xe)')
+axes[1].set_xlabel('Wasserstein Radius ($\\epsilon$)', fontsize=12)
+axes[1].set_ylabel('Capacity Level', fontsize=12)
+axes[1].set_title('Capacity Decisions vs. Epsilon', fontsize=14)
+axes[1].legend()
 
-# --- Subplot 4: 渠道1产能分配随样本规模的变化 ---
-plt.subplot(5, 1, 4)
-plt.errorbar(summary['N'], summary[('xd1', 'mean')], 
-             yerr=summary[('xd1', 'std')], 
-             fmt='o-', color='blue', alpha=0.7, label='Fixed Capacity (Channel 1)')
-plt.errorbar(summary['N'], summary[('xe1', 'mean')], 
-             yerr=summary[('xe1', 'std')], 
-             fmt='s-', color='red', alpha=0.7, label='Flexible Capacity (Channel 1)')
-plt.title('Channel 1 Capacity Allocation vs Sample Size')
-plt.xlabel('Sample Size (N)')
-plt.ylabel('Capacity')
-plt.grid(True)
-plt.legend()
+# --- Subplot 3: Capacity Allocation ---
+axes[2].plot(summary['epsilon'], summary['xd1_mean'], 'o-', label='Fixed Capacity Ch1 (xd1)')
+axes[2].plot(summary['epsilon'], summary['xd2_mean'], 's-', label='Fixed Capacity Ch2 (xd2)')
+axes[2].plot(summary['epsilon'], summary['xe1_mean'], '^--', label='Flexible Capacity Ch1 (xe1)')
+axes[2].plot(summary['epsilon'], summary['xe2_mean'], 'v--', label='Flexible Capacity Ch2 (xe2)')
+axes[2].set_xlabel('Wasserstein Radius ($\\epsilon$)', fontsize=12)
+axes[2].set_ylabel('Allocated Capacity', fontsize=12)
+axes[2].set_title('Capacity Allocation vs. Epsilon', fontsize=14)
+axes[2].legend()
 
-# --- Subplot 5: 渠道2产能分配随样本规模的变化 ---
-plt.subplot(5, 1, 5)
-plt.errorbar(summary['N'], summary[('xd2', 'mean')], 
-             yerr=summary[('xd2', 'std')], 
-             fmt='o-', color='blue', alpha=0.7, label='Fixed Capacity (Channel 2)')
-plt.errorbar(summary['N'], summary[('xe2', 'mean'), 
-             yerr=summary[('xe2', 'std')], 
-             fmt='s-', color='red', alpha=0.7, label='Flexible Capacity (Channel 2)')
-plt.title('Channel 2 Capacity Allocation vs Sample Size')
-plt.xlabel('Sample Size (N)')
-plt.ylabel('Capacity')
-plt.grid(True)
-plt.legend()
 
-plt.tight_layout()
-plt.savefig(os.path.join('results', 'Pics', 'modified_dro_simulation_plot.png'), dpi=300)
+plt.tight_layout(rect=[0, 0.03, 1, 0.96])
+plt.savefig(os.path.join(output_dir, '32_dro_simulation_results_plot.png'), dpi=300)
 plt.show()
